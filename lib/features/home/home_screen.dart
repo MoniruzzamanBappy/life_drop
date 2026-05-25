@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:lifedrop/core/services/activity_service.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/me_service.dart';
@@ -61,12 +62,45 @@ class _HomeScreenState extends State<HomeScreen> {
                     : profile.email,
                 imageUrl: profile.photo,
                 actions: [
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.white,
-                    ),
+                  StreamBuilder<int>(
+                    stream: ActivityService().watchUnreadCount(user.uid),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+
+                      return Stack(
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              widget.onTabChange(4);
+                            },
+                            icon: const Icon(
+                              Icons.notifications_none,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (count > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.danger,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  count > 9 ? '9+' : count.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

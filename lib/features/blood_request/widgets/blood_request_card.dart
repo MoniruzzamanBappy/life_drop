@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/call_service.dart';
 import '../../../models/blood_request_model.dart';
 
 class BloodRequestCard extends StatelessWidget {
@@ -30,7 +31,7 @@ class BloodRequestCard extends StatelessWidget {
       case 'emergency':
         return AppColors.danger;
       case 'urgent':
-        return Colors.orange;
+        return AppColors.warning;
       default:
         return AppColors.primaryGreen;
     }
@@ -42,6 +43,19 @@ class BloodRequestCard extends StatelessWidget {
         return AppColors.textSecondary;
       default:
         return AppColors.primaryGreen;
+    }
+  }
+
+  Future<void> _callContact(BuildContext context) async {
+    final success = await CallService.callPhone(request.contactPhone);
+
+    if (!success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open phone dialer'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
     }
   }
 
@@ -57,11 +71,7 @@ class BloodRequestCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
         boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -130,8 +140,26 @@ class BloodRequestCard extends StatelessWidget {
             ),
           ],
 
+          const SizedBox(height: 12),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _callContact(context),
+              icon: const Icon(Icons.phone),
+              label: const Text('Call Contact'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+
           if (isMine && request.status == 'open' && onClose != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: onClose,
               icon: const Icon(Icons.check_circle_outline),

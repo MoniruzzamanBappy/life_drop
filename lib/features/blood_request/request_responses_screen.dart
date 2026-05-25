@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lifedrop/core/services/activity_service.dart';
+import 'package:lifedrop/core/services/call_service.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/blood_request_response_service.dart';
@@ -31,6 +33,17 @@ class RequestResponsesScreen extends StatelessWidget {
         requestId: request.id,
         donorUid: response.donorUid,
         status: status,
+      );
+
+      await ActivityService().createActivity(
+        userId: response.donorUid,
+        title: status == 'accepted'
+            ? 'Your response was accepted'
+            : 'Your response was rejected',
+        message:
+            'Your response for ${request.bloodGroup} blood request at ${request.hospitalName} was $status.',
+        type: 'response_status',
+        relatedRequestId: request.id,
       );
 
       if (!context.mounted) return;
@@ -175,6 +188,36 @@ class RequestResponsesScreen extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.danger,
                     side: const BorderSide(color: AppColors.danger),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final success = await CallService.callPhone(
+                      response.donorPhone,
+                    );
+
+                    if (!success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not open phone dialer'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.phone),
+                  label: const Text('Call Donor'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),

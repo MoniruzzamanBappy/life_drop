@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lifedrop/core/services/call_service.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/donor_service.dart';
@@ -208,7 +209,21 @@ class _FindDonorsScreenState extends State<FindDonorsScreen> {
               ],
             ),
           ),
-          const Icon(Icons.phone, color: AppColors.primaryGreen),
+          IconButton(
+            onPressed: () async {
+              final success = await CallService.callPhone(donor.phone);
+
+              if (!success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not open phone dialer'),
+                    backgroundColor: AppColors.danger,
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.phone, color: AppColors.primaryGreen),
+          ),
         ],
       ),
     );

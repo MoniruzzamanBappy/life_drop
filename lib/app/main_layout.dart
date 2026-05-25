@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lifedrop/features/activity/activity_screen.dart';
 
 import '../core/constants/app_colors.dart';
 import '../features/blood_request/blood_request_screen.dart';
@@ -28,6 +29,7 @@ class MainLayoutState extends State<MainLayout> {
     const DonorListScreen(),
     const BloodRequestScreen(),
     const ProfileScreen(),
+    const ActivityScreen(),
     const SettingsScreen(),
   ];
 

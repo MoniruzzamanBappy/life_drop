@@ -13,33 +13,6 @@ class BloodRequestService {
     return _collection.add(request.toCreateMap());
   }
 
-  Stream<List<BloodRequestModel>> watchOpenBloodRequests() {
-    return _collection
-        .where('status', isEqualTo: 'open')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => BloodRequestModel.fromFirestore(doc))
-              .toList();
-        });
-  }
-
-  Stream<List<BloodRequestModel>> watchOtherOpenBloodRequests(
-    String currentUid,
-  ) {
-    return _collection
-        .where('status', isEqualTo: 'open')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => BloodRequestModel.fromFirestore(doc))
-              .where((request) => request.requesterUid != currentUid)
-              .toList();
-        });
-  }
-
   Stream<List<BloodRequestModel>> watchMyBloodRequests(String requesterUid) {
     return _collection
         .where('requesterUid', isEqualTo: requesterUid)
@@ -57,6 +30,49 @@ class BloodRequestService {
 
           return requests;
         });
+  }
+
+  Stream<List<BloodRequestModel>> watchOpenBloodRequests() {
+    return _collection.where('status', isEqualTo: 'open').snapshots().map((
+      snapshot,
+    ) {
+      final requests = snapshot.docs
+          .map((doc) => BloodRequestModel.fromFirestore(doc))
+          .toList();
+
+      requests.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+      return requests;
+    });
+  }
+
+  Stream<List<BloodRequestModel>> watchOtherOpenBloodRequests(
+    String currentUid, {
+    bool includeMine = false,
+  }) {
+    return _collection.where('status', isEqualTo: 'open').snapshots().map((
+      snapshot,
+    ) {
+      final requests = snapshot.docs
+          .map((doc) => BloodRequestModel.fromFirestore(doc))
+          .where((request) {
+            if (includeMine) return true;
+            return request.requesterUid != currentUid;
+          })
+          .toList();
+
+      requests.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+      return requests;
+    });
   }
 
   Future<void> closeBloodRequest(String requestId) {

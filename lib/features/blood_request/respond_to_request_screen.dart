@@ -2,12 +2,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/services/activity_service.dart';
 import '../../core/services/blood_request_response_service.dart';
 import '../../core/services/donor_service.dart';
 import '../../models/blood_request_model.dart';
 import '../../models/blood_request_response_model.dart';
 import '../../models/donor_model.dart';
 import '../../widgets/custom_button.dart';
+import '../donor/donor_form_screen.dart';
 
 class RespondToRequestScreen extends StatefulWidget {
   const RespondToRequestScreen({super.key, required this.request});
@@ -20,6 +22,7 @@ class RespondToRequestScreen extends StatefulWidget {
 
 class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
   final _messageController = TextEditingController();
+
   final DonorService _donorService = DonorService();
   final BloodRequestResponseService _responseService =
       BloodRequestResponseService();
@@ -38,6 +41,8 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
@@ -54,6 +59,21 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
     });
   }
 
+  Future<void> _goToDonorForm() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DonorFormScreen(donor: _donor)),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    await _loadDonor();
+  }
+
   Future<void> _submitResponse() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -64,6 +84,7 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
 
     if (_donor == null) {
       _showMessage('Please create your donor profile first', isError: true);
+      await _goToDonorForm();
       return;
     }
 
@@ -95,6 +116,15 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
       await _responseService.respondToRequest(
         requestId: widget.request.id,
         response: response,
+      );
+
+      await ActivityService().createActivity(
+        userId: widget.request.requesterUid,
+        title: 'New donor response',
+        message:
+            '${_donor!.name} responded to your ${widget.request.bloodGroup} blood request.',
+        type: 'request_response',
+        relatedRequestId: widget.request.id,
       );
 
       if (!mounted) return;
@@ -130,6 +160,7 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final donor = _donor;
+
     final isBloodMatched =
         donor != null &&
         donor.bloodGroup.toUpperCase() ==
@@ -147,24 +178,42 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
                   _requestSummary(),
                   const SizedBox(height: 16),
 
-                  if (donor == null)
+                  if (donor == null) ...[
                     _warningCard(
                       title: 'Donor profile required',
                       message:
-                          'You need to create a donor profile before responding to a blood request.',
-                    )
-                  else ...[
+                          'You need to create your donor profile before responding to this blood request.',
+                    ),
+                    const SizedBox(height: 16),
+                    CustomButton(
+                      text: 'Create Donor Profile',
+                      onPressed: _goToDonorForm,
+                    ),
+                  ] else ...[
                     _donorSummary(donor),
                     const SizedBox(height: 16),
 
-                    if (!isBloodMatched)
+                    if (!donor.isAvailable) ...[
+                      _warningCard(
+                        title: 'You are currently unavailable',
+                        message:
+                            'Your donor profile is marked unavailable. Update your donor profile if you want to respond.',
+                      ),
+                      const SizedBox(height: 16),
+                      CustomButton(
+                        text: 'Update Donor Profile',
+                        onPressed: _goToDonorForm,
+                      ),
+                    ],
+
+                    if (!isBloodMatched) ...[
                       _warningCard(
                         title: 'Blood group does not match',
                         message:
                             'Requested blood group is ${widget.request.bloodGroup}, but your donor profile blood group is ${donor.bloodGroup}. Continue only if this is correct.',
                       ),
-
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                    ],
 
                     TextFormField(
                       controller: _messageController,
@@ -173,9 +222,20 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
                         labelText: 'Message Optional',
                         hintText: 'Example: I can donate today after 5 PM.',
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AppColors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                            color: AppColors.primaryTeal,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -184,7 +244,9 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
 
                     CustomButton(
                       text: _isSubmitting ? 'Sending...' : 'I Can Donate',
-                      onPressed: _isSubmitting ? null : _submitResponse,
+                      onPressed: _isSubmitting || !donor.isAvailable
+                          ? null
+                          : _submitResponse,
                     ),
                   ],
                 ],
@@ -256,14 +318,14 @@ class _RespondToRequestScreenState extends State<RespondToRequestScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: AppColors.lightWarning,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFECB3)),
+        border: Border.all(color: AppColors.warningBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber, color: Color(0xFFF57F17)),
+          const Icon(Icons.warning_amber, color: AppColors.warning),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
