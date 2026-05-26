@@ -185,13 +185,28 @@ class _FindDonorsScreenState extends State<FindDonorsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  donor.name,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        donor.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (donor.isVerified) ...[
+                      const SizedBox(width: 1),
+                      const Icon(
+                        Icons.verified,
+                        color: AppColors.primaryGreen,
+                        size: 18,
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 5),
                 Text(

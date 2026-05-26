@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:lifedrop/features/blood_request/blood_request_details_screen.dart';
 import 'package:lifedrop/features/blood_request/respond_to_request_screen.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -58,7 +59,19 @@ class BloodRequestListScreen extends StatelessWidget {
 
               return Column(
                 children: [
-                  BloodRequestCard(request: request, isMine: false),
+                  BloodRequestCard(
+                    request: request,
+                    isMine: false,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BloodRequestDetailsScreen(request: request),
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,

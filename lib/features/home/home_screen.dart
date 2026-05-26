@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lifedrop/core/services/activity_service.dart';
+import 'package:lifedrop/features/activity/activity_screen.dart';
+import 'package:lifedrop/features/donation_history/donation_history_screen.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/me_service.dart';
@@ -71,7 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           IconButton(
                             onPressed: () {
-                              widget.onTabChange(4);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ActivityScreen(),
+                                ),
+                              );
                             },
                             icon: const Icon(
                               Icons.notifications_none,
@@ -173,15 +180,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           _menuCard(
                             title: 'Donation History',
-                            subtitle: 'Coming soon',
+                            subtitle: 'View donation history',
                             icon: Icons.history,
                             color: AppColors.primaryTeal,
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Donation History will be added soon',
-                                  ),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DonationHistoryScreen(),
                                 ),
                               );
                             },

@@ -60,12 +60,41 @@ class DonorService {
     });
   }
 
+  Stream<List<DonorModel>> watchAllDonors() {
+    return _collection.snapshots().map((snapshot) {
+      final donors = snapshot.docs
+          .map((doc) => DonorModel.fromFirestore(doc))
+          .toList();
+
+      donors.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+      return donors;
+    });
+  }
+
   Future<void> updateAvailability({
     required String uid,
     required bool isAvailable,
   }) {
     return _collection.doc(uid).set({
       'isAvailable': isAvailable,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateVerification({
+    required String donorUid,
+    required bool isVerified,
+    required String adminUid,
+  }) {
+    return _collection.doc(donorUid).set({
+      'isVerified': isVerified,
+      'verifiedBy': isVerified ? adminUid : '',
+      'verifiedAt': isVerified ? FieldValue.serverTimestamp() : null,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

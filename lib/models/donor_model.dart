@@ -10,6 +10,9 @@ class DonorModel {
   final String bloodGroup;
   final DateTime? lastDonateDate;
   final bool isAvailable;
+  final bool isVerified;
+  final String verifiedBy;
+  final DateTime? verifiedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -23,6 +26,9 @@ class DonorModel {
     required this.bloodGroup,
     required this.lastDonateDate,
     required this.isAvailable,
+    required this.isVerified,
+    required this.verifiedBy,
+    required this.verifiedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -37,6 +43,9 @@ class DonorModel {
     String bloodGroup = '',
     DateTime? lastDonateDate,
     bool isAvailable = true,
+    bool isVerified = false,
+    String verifiedBy = '',
+    DateTime? verifiedAt,
   }) {
     return DonorModel(
       uid: uid,
@@ -48,6 +57,9 @@ class DonorModel {
       bloodGroup: bloodGroup,
       lastDonateDate: lastDonateDate,
       isAvailable: isAvailable,
+      isVerified: isVerified,
+      verifiedBy: verifiedBy,
+      verifiedAt: verifiedAt,
       createdAt: null,
       updatedAt: null,
     );
@@ -68,6 +80,11 @@ class DonorModel {
       isAvailable: data['isAvailable'] is bool
           ? data['isAvailable']
           : data['isAvailable']?.toString().toLowerCase() == 'true',
+      isVerified: data['isVerified'] is bool
+          ? data['isVerified']
+          : data['isVerified']?.toString().toLowerCase() == 'true',
+      verifiedBy: data['verifiedBy']?.toString() ?? '',
+      verifiedAt: _dateFromFirestore(data['verifiedAt']),
       createdAt: _dateFromFirestore(data['createdAt']),
       updatedAt: _dateFromFirestore(data['updatedAt']),
     );
@@ -86,6 +103,9 @@ class DonorModel {
           ? null
           : Timestamp.fromDate(lastDonateDate!),
       'isAvailable': isAvailable,
+      'isVerified': isVerified,
+      'verifiedBy': verifiedBy,
+      'verifiedAt': verifiedAt == null ? null : Timestamp.fromDate(verifiedAt!),
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };

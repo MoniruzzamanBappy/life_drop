@@ -75,10 +75,41 @@ class BloodRequestService {
     });
   }
 
-  Future<void> closeBloodRequest(String requestId) {
-    return _collection.doc(requestId).update({
-      'status': 'closed',
-      'updatedAt': FieldValue.serverTimestamp(),
+  Stream<List<BloodRequestModel>> watchAllBloodRequests() {
+    return _collection.snapshots().map((snapshot) {
+      final requests = snapshot.docs
+          .map((doc) => BloodRequestModel.fromFirestore(doc))
+          .toList();
+
+      requests.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+      return requests;
     });
+  }
+
+  Future<void> closeBloodRequest(String requestId) {
+    return updateRequestStatus(requestId: requestId, status: 'closed');
+  }
+
+  Future<void> reopenBloodRequest(String requestId) {
+    return updateRequestStatus(requestId: requestId, status: 'open');
+  }
+
+  Future<void> markFulfilled(String requestId) {
+    return updateRequestStatus(requestId: requestId, status: 'fulfilled');
+  }
+
+  Future<void> updateRequestStatus({
+    required String requestId,
+    required String status,
+  }) {
+    return _collection.doc(requestId).set({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

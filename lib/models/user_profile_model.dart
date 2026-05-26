@@ -9,6 +9,7 @@ class UserProfileModel {
   final String photo;
   final DateTime? lastDonateDate;
   final String bloodGroup;
+  final String role;
 
   final bool? currentIllnessStatus;
   final bool? currentMedicationStatus;
@@ -28,6 +29,7 @@ class UserProfileModel {
     required this.photo,
     required this.lastDonateDate,
     required this.bloodGroup,
+    required this.role,
     required this.currentIllnessStatus,
     required this.currentMedicationStatus,
     required this.recentSurgeryOrMajorIllness,
@@ -53,6 +55,7 @@ class UserProfileModel {
       photo: photo,
       lastDonateDate: null,
       bloodGroup: '',
+      role: 'user',
       currentIllnessStatus: null,
       currentMedicationStatus: null,
       recentSurgeryOrMajorIllness: null,
@@ -77,6 +80,7 @@ class UserProfileModel {
       photo: data['photo']?.toString() ?? '',
       lastDonateDate: _dateFromFirestore(data['lastDonateDate']),
       bloodGroup: data['bloodGroup']?.toString() ?? '',
+      role: data['role']?.toString() ?? '',
       currentIllnessStatus: _toBool(data['currentIllnessStatus']),
       currentMedicationStatus: _toBool(data['currentMedicationStatus']),
       recentSurgeryOrMajorIllness: _toBool(data['recentSurgeryOrMajorIllness']),
@@ -99,6 +103,7 @@ class UserProfileModel {
           ? null
           : Timestamp.fromDate(lastDonateDate!),
       'bloodGroup': bloodGroup,
+      'role': role,
       'currentIllnessStatus': currentIllnessStatus,
       'currentMedicationStatus': currentMedicationStatus,
       'recentSurgeryOrMajorIllness': recentSurgeryOrMajorIllness,

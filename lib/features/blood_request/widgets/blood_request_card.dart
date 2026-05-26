@@ -10,19 +10,19 @@ class BloodRequestCard extends StatelessWidget {
     required this.request,
     required this.isMine,
     this.onClose,
+    this.onTap,
   });
 
   final BloodRequestModel request;
   final bool isMine;
   final VoidCallback? onClose;
+  final VoidCallback? onTap;
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Not added';
-
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     final year = date.year.toString();
-
     return '$day-$month-$year';
   }
 
@@ -48,7 +48,6 @@ class BloodRequestCard extends StatelessWidget {
 
   Future<void> _callContact(BuildContext context) async {
     final success = await CallService.callPhone(request.contactPhone);
-
     if (!success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -64,120 +63,129 @@ class BloodRequestCard extends StatelessWidget {
     final urgencyColor = _urgencyColor(request.urgency);
     final statusColor = _statusColor(request.status);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-        boxShadow: const [
-          BoxShadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 4)),
-        ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Transform.translate(
+        offset: Offset(0, 18 * (1 - value)),
+        child: Opacity(opacity: value, child: child),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppColors.softShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                backgroundColor: urgencyColor.withValues(alpha: 0.12),
-                child: Text(
-                  request.bloodGroup,
-                  style: TextStyle(
-                    color: urgencyColor,
-                    fontWeight: FontWeight.bold,
+              Row(
+                children: [
+                  Container(
+                    height: 52,
+                    width: 52,
+                    decoration: BoxDecoration(
+                      gradient: urgencyColor == AppColors.danger
+                          ? AppColors.bloodGradient
+                          : null,
+                      color: urgencyColor == AppColors.danger
+                          ? null
+                          : urgencyColor.withValues(alpha: 0.13),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        request.bloodGroup,
+                        style: TextStyle(
+                          color: urgencyColor == AppColors.danger
+                              ? Colors.white
+                              : urgencyColor,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      request.patientName,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  _badge(text: request.status.toUpperCase(), color: statusColor),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _badge(text: request.urgency.toUpperCase(), color: urgencyColor),
+              ),
+              const SizedBox(height: 14),
+              _info(Icons.water_drop_outlined, '${request.unitsNeeded} unit(s) needed'),
+              _info(Icons.local_hospital_outlined, request.hospitalName),
+              _info(Icons.location_on_outlined, request.hospitalAddress),
+              _info(Icons.map_outlined, request.district),
+              _info(Icons.calendar_month_outlined, _formatDate(request.neededDate)),
+              _info(Icons.phone_outlined, '${request.contactName} - ${request.contactPhone}'),
+              if (request.reason.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  request.reason,
+                  style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+                ),
+              ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _callContact(context),
+                  icon: const Icon(Icons.phone),
+                  label: const Text('Call Contact'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  request.patientName,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              if (isMine && request.status == 'open' && onClose != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onClose,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Close Request'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryGreen,
+                      side: const BorderSide(color: AppColors.primaryGreen),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
                   ),
                 ),
-              ),
-              _badge(text: request.status.toUpperCase(), color: statusColor),
+              ],
             ],
           ),
-
-          const SizedBox(height: 10),
-
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _badge(
-              text: request.urgency.toUpperCase(),
-              color: urgencyColor,
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          _info(
-            Icons.water_drop_outlined,
-            '${request.unitsNeeded} unit(s) needed',
-          ),
-          _info(Icons.local_hospital_outlined, request.hospitalName),
-          _info(Icons.location_on_outlined, request.hospitalAddress),
-          _info(Icons.map_outlined, request.district),
-          _info(Icons.calendar_month_outlined, _formatDate(request.neededDate)),
-          _info(
-            Icons.phone_outlined,
-            '${request.contactName} - ${request.contactPhone}',
-          ),
-
-          if (request.reason.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              request.reason,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 12),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _callContact(context),
-              icon: const Icon(Icons.phone),
-              label: const Text('Call Contact'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                foregroundColor: AppColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-
-          if (isMine && request.status == 'open' && onClose != null) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onClose,
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Close Request'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryGreen,
-                side: const BorderSide(color: AppColors.primaryGreen),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _info(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -188,7 +196,8 @@ class BloodRequestCard extends StatelessWidget {
               text.isEmpty ? 'Not added' : text,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
               ),
             ),
           ),
@@ -199,18 +208,14 @@ class BloodRequestCard extends StatelessWidget {
 
   Widget _badge({required String text, required Color color}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900),
       ),
     );
   }
