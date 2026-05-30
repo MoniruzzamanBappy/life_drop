@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_form_options.dart';
 import '../../core/services/donor_service.dart';
 import '../../core/services/me_service.dart';
 import '../../core/utils/validators.dart';
@@ -29,24 +30,13 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
-  final _districtController = TextEditingController();
 
+  String? _district;
   String? _bloodGroup;
   DateTime? _lastDonateDate;
   bool _isAvailable = true;
   bool _isLoading = false;
   bool _isInitialLoading = true;
-
-  final List<String> _bloodGroups = const [
-    'A+',
-    'A-',
-    'B+',
-    'B-',
-    'AB+',
-    'AB-',
-    'O+',
-    'O-',
-  ];
 
   @override
   void initState() {
@@ -90,7 +80,7 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
     _phoneController.text = donor.phone;
     _emailController.text = donor.email;
     _addressController.text = donor.address;
-    _districtController.text = donor.district;
+    _district = donor.district.isEmpty ? null : donor.district;
     _bloodGroup = donor.bloodGroup.isEmpty ? null : donor.bloodGroup;
     _lastDonateDate = donor.lastDonateDate;
     _isAvailable = donor.isAvailable;
@@ -102,7 +92,6 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
     _emailController.text = me.email;
     _addressController.text = me.address;
     _bloodGroup = me.bloodGroup.isEmpty ? null : me.bloodGroup;
-    _lastDonateDate = me.lastDonateDate;
   }
 
   Future<void> _pickLastDonateDate() async {
@@ -153,7 +142,7 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim(),
         address: _addressController.text.trim(),
-        district: _districtController.text.trim(),
+        district: _district ?? '',
         bloodGroup: _bloodGroup ?? '',
         lastDonateDate: _lastDonateDate,
         isAvailable: _isAvailable,
@@ -191,7 +180,6 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
-    _districtController.dispose();
     super.dispose();
   }
 
@@ -218,6 +206,7 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
               children: [
                 _sectionTitle('Donor Information', Icons.volunteer_activism),
                 const SizedBox(height: 14),
+
                 CustomTextField(
                   controller: _nameController,
                   label: 'Full Name',
@@ -225,7 +214,9 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
                   validator: (value) =>
                       Validators.requiredField(value, 'Full name'),
                 ),
+
                 const SizedBox(height: 14),
+
                 CustomTextField(
                   controller: _phoneController,
                   label: 'Phone Number',
@@ -233,7 +224,9 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
                   keyboardType: TextInputType.phone,
                   validator: Validators.phone,
                 ),
+
                 const SizedBox(height: 14),
+
                 CustomTextField(
                   controller: _emailController,
                   label: 'Email',
@@ -241,7 +234,9 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
                   keyboardType: TextInputType.emailAddress,
                   validator: Validators.email,
                 ),
+
                 const SizedBox(height: 14),
+
                 _multiLineField(
                   controller: _addressController,
                   label: 'Address',
@@ -249,20 +244,30 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
                   validator: (value) =>
                       Validators.requiredField(value, 'Address'),
                 ),
+
                 const SizedBox(height: 14),
-                CustomTextField(
-                  controller: _districtController,
+
+                CustomDropdownField(
                   label: 'District',
+                  value: _district,
                   prefixIcon: Icons.map_outlined,
+                  items: AppFormOptions.districts,
                   validator: (value) =>
                       Validators.requiredField(value, 'District'),
+                  onChanged: (value) {
+                    setState(() {
+                      _district = value;
+                    });
+                  },
                 ),
+
                 const SizedBox(height: 14),
+
                 CustomDropdownField(
                   label: 'Blood Group',
                   value: _bloodGroup,
                   prefixIcon: Icons.bloodtype,
-                  items: _bloodGroups,
+                  items: AppFormOptions.bloodGroups,
                   validator: (value) =>
                       Validators.requiredField(value, 'Blood group'),
                   onChanged: (value) {
@@ -271,15 +276,22 @@ class _DonorFormScreenState extends State<DonorFormScreen> {
                     });
                   },
                 ),
+
                 const SizedBox(height: 14),
+
                 _datePicker(),
+
                 const SizedBox(height: 14),
+
                 _availabilitySwitch(),
+
                 const SizedBox(height: 28),
+
                 CustomButton(
                   text: _isLoading ? 'Saving...' : 'Save Donor Profile',
                   onPressed: _isLoading ? null : _saveDonor,
                 ),
+
                 const SizedBox(height: 20),
               ],
             ),

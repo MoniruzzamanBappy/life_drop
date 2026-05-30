@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/activity_service.dart';
 import '../../core/services/blood_request_response_service.dart';
-import '../../core/services/blood_request_service.dart';
 import '../../core/services/call_service.dart';
 import '../../core/services/donation_history_service.dart';
 import '../../models/blood_request_model.dart';
 import '../../models/blood_request_response_model.dart';
-import '../../models/donation_history_model.dart';
 
 class RequestResponsesScreen extends StatefulWidget {
   const RequestResponsesScreen({super.key, required this.request});
@@ -21,6 +19,12 @@ class RequestResponsesScreen extends StatefulWidget {
 
 class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
   String _filter = 'all';
+  bool _isProcessing = false;
+
+  bool get _isFulfilled {
+    return widget.request.status.toLowerCase() == 'fulfilled' ||
+        widget.request.acceptedDonorUid.trim().isNotEmpty;
+  }
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
@@ -43,6 +47,17 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
         .toList();
   }
 
+  BloodRequestResponseModel? _acceptedResponse(
+    List<BloodRequestResponseModel> responses,
+  ) {
+    for (final response in responses) {
+      if (response.status.toLowerCase() == 'accepted') {
+        return response;
+      }
+    }
+    return null;
+  }
+
   Future<void> _callDonor(
     BuildContext context,
     BloodRequestResponseModel response,
@@ -59,82 +74,159 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
     }
   }
 
-  Future<void> _updateStatus({
+  Future<bool> _confirmAccept(
+    BuildContext context,
+    BloodRequestResponseModel response,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text('Accept this donor?'),
+          content: Text(
+            'Are you sure you want to accept ${response.donorName.isEmpty ? 'this donor' : response.donorName}?\n\n'
+            'This will mark the request as fulfilled and create one donation history record.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.check),
+              label: const Text('Accept'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _acceptResponse({
     required BuildContext context,
     required BloodRequestResponseModel response,
-    required String status,
   }) async {
+    if (_isProcessing) return;
+
+    if (_isFulfilled) {
+      _showMessage(context, 'This request is already fulfilled', isError: true);
+      return;
+    }
+
+    final confirmed = await _confirmAccept(context, response);
+    if (!confirmed) return;
+
     try {
-      await BloodRequestResponseService().updateResponseStatus(
-        requestId: widget.request.id,
-        donorUid: response.donorUid,
-        status: status,
+      setState(() => _isProcessing = true);
+
+      await DonationHistoryService().acceptResponseAndFulfillRequest(
+        request: widget.request,
+        response: response,
       );
-
-      if (status == 'accepted') {
-        await BloodRequestService().markFulfilled(widget.request.id);
-
-        await DonationHistoryService().createDonationHistory(
-          DonationHistoryModel(
-            id: '',
-            requestId: widget.request.id,
-            requesterUid: widget.request.requesterUid,
-            donorUid: response.donorUid,
-            donorName: response.donorName,
-            donorPhone: response.donorPhone,
-            patientName: widget.request.patientName,
-            bloodGroup: widget.request.bloodGroup,
-            unitsDonated: widget.request.unitsNeeded,
-            hospitalName: widget.request.hospitalName,
-            district: widget.request.district,
-            donatedAt: DateTime.now(),
-            createdAt: null,
-          ),
-        );
-      }
 
       await ActivityService().createActivity(
         userId: response.donorUid,
-        title: status == 'accepted'
-            ? 'Your response was accepted'
-            : 'Your response was rejected',
+        title: 'Your response was accepted',
         message:
-            'Your response for ${widget.request.bloodGroup} blood request at ${widget.request.hospitalName} was $status.',
+            'Your response for ${widget.request.bloodGroup} blood request at ${widget.request.hospitalName} was accepted.',
         type: 'response_status',
         relatedRequestId: widget.request.id,
       );
 
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Response $status successfully'),
-          backgroundColor: status == 'accepted'
-              ? AppColors.primaryGreen
-              : AppColors.danger,
-        ),
-      );
+      _showMessage(context, 'Donor accepted and request fulfilled');
+
+      Navigator.pop(context);
     } catch (e) {
       if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      _showMessage(context, e.toString(), isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
+  }
+
+  Future<void> _rejectResponse({
+    required BuildContext context,
+    required BloodRequestResponseModel response,
+  }) async {
+    if (_isProcessing) return;
+
+    try {
+      setState(() => _isProcessing = true);
+
+      await BloodRequestResponseService().updateResponseStatus(
+        requestId: widget.request.id,
+        donorUid: response.donorUid,
+        status: 'rejected',
+      );
+
+      await ActivityService().createActivity(
+        userId: response.donorUid,
+        title: 'Your response was rejected',
+        message:
+            'Your response for ${widget.request.bloodGroup} blood request at ${widget.request.hospitalName} was rejected.',
+        type: 'response_status',
+        relatedRequestId: widget.request.id,
+      );
+
+      if (!context.mounted) return;
+      _showMessage(context, 'Response rejected');
+    } catch (e) {
+      if (!context.mounted) return;
+      _showMessage(context, e.toString(), isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  void _showMessage(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.danger : AppColors.primaryGreen,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final acceptedDonorName = widget.request.acceptedDonorName.trim();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Request Responses')),
       body: Column(
         children: [
           _requestSummary(),
+
+          if (_isFulfilled)
+            _fulfilledNotice(
+              acceptedDonorName.isEmpty
+                  ? 'A donor has already been accepted.'
+                  : '$acceptedDonorName has already been accepted.',
+            ),
+
           _filters(),
+
           Expanded(
             child: StreamBuilder<List<BloodRequestResponseModel>>(
               stream: BloodRequestResponseService().watchResponses(
@@ -142,7 +234,11 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
               ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryGreen,
+                    ),
+                  );
                 }
 
                 if (snapshot.hasError) {
@@ -161,7 +257,9 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
                   );
                 }
 
-                final responses = _filterResponses(snapshot.data ?? []);
+                final allResponses = snapshot.data ?? [];
+                final accepted = _acceptedResponse(allResponses);
+                final responses = _filterResponses(allResponses);
 
                 if (responses.isEmpty) {
                   return const Center(
@@ -186,7 +284,21 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
                   itemBuilder: (context, index) {
                     final response = responses[index];
 
-                    return _responseCard(context: context, response: response);
+                    final alreadyAccepted =
+                        accepted != null &&
+                        accepted.donorUid == response.donorUid;
+
+                    final disableAccept =
+                        _isFulfilled ||
+                        _isProcessing ||
+                        !response.status.toLowerCase().contains('pending');
+
+                    return _responseCard(
+                      context: context,
+                      response: response,
+                      disableAccept: disableAccept,
+                      alreadyAccepted: alreadyAccepted,
+                    );
                   },
                 );
               },
@@ -240,6 +352,37 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
               ],
             ),
           ),
+          _badge(widget.request.status.toUpperCase(), AppColors.primaryGreen),
+        ],
+      ),
+    );
+  }
+
+  Widget _fulfilledNotice(String text) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryGreen.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_rounded, color: AppColors.primaryGreen),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -290,6 +433,8 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
   Widget _responseCard({
     required BuildContext context,
     required BloodRequestResponseModel response,
+    required bool disableAccept,
+    required bool alreadyAccepted,
   }) {
     final statusColor = _statusColor(response.status);
     final isPending = response.status.toLowerCase() == 'pending';
@@ -297,9 +442,13 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: alreadyAccepted
+            ? AppColors.primaryGreen.withValues(alpha: 0.06)
+            : AppColors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: alreadyAccepted ? AppColors.primaryGreen : AppColors.border,
+        ),
         boxShadow: const [
           BoxShadow(
             color: AppColors.cardShadow,
@@ -335,7 +484,10 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
                   ),
                 ),
               ),
-              _badge(response.status.toUpperCase(), statusColor),
+              _badge(
+                alreadyAccepted ? 'SELECTED' : response.status.toUpperCase(),
+                alreadyAccepted ? AppColors.primaryGreen : statusColor,
+              ),
             ],
           ),
 
@@ -369,11 +521,12 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _updateStatus(
-                      context: context,
-                      response: response,
-                      status: 'accepted',
-                    ),
+                    onPressed: disableAccept
+                        ? null
+                        : () => _acceptResponse(
+                            context: context,
+                            response: response,
+                          ),
                     icon: const Icon(Icons.check),
                     label: const Text('Accept'),
                     style: OutlinedButton.styleFrom(
@@ -385,11 +538,12 @@ class _RequestResponsesScreenState extends State<RequestResponsesScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _updateStatus(
-                      context: context,
-                      response: response,
-                      status: 'rejected',
-                    ),
+                    onPressed: _isProcessing
+                        ? null
+                        : () => _rejectResponse(
+                            context: context,
+                            response: response,
+                          ),
                     icon: const Icon(Icons.close),
                     label: const Text('Reject'),
                     style: OutlinedButton.styleFrom(

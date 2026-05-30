@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lifedrop/core/services/activity_service.dart';
-import 'package:lifedrop/features/activity/activity_screen.dart';
 import 'package:lifedrop/features/donation_history/donation_history_screen.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -73,12 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           IconButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ActivityScreen(),
-                                ),
-                              );
+                              widget.onTabChange(3);
                             },
                             icon: const Icon(
                               Icons.notifications_none,
@@ -157,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.person_outline,
                             color: AppColors.primaryTeal,
                             onTap: () {
-                              widget.onTabChange(3);
+                              widget.onTabChange(5);
                             },
                           ),
                           _menuCard(
@@ -198,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.health_and_safety_outlined,
                             color: AppColors.primaryGreen,
                             onTap: () {
-                              widget.onTabChange(3);
+                              widget.onTabChange(5);
                             },
                           ),
                           _menuCard(
@@ -207,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.settings_outlined,
                             color: AppColors.textSecondary,
                             onTap: () {
-                              widget.onTabChange(4);
+                              widget.onTabChange(6);
                             },
                           ),
                         ],
@@ -268,19 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: AppColors.textSecondary, height: 1.4),
             ),
           ),
-          // const SizedBox(height: 10),
-          // if (profile.missingFields.isNotEmpty)
-          //   Align(
-          //     alignment: Alignment.centerLeft,
-          //     child: Text(
-          //       'Missing: ${profile.missingFields.join(', ')}',
-          //       style: const TextStyle(
-          //         color: AppColors.textPrimary,
-          //         fontSize: 13,
-          //         fontWeight: FontWeight.w600,
-          //       ),
-          //     ),
-          //   ),
           const SizedBox(height: 14),
           Align(
             alignment: Alignment.centerLeft,

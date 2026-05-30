@@ -24,6 +24,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -62,6 +65,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Widget _passwordEyeButton({
+    required bool visible,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      tooltip: visible ? 'Hide password' : 'Show password',
+      onPressed: onPressed,
+      icon: Icon(
+        visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<LifeDropAuthProvider>();
@@ -98,9 +114,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     Hero(
                       tag: 'life-drop-logo',
-                      child: Image.asset('assets/logo.png', height: 88, width: 88),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        height: 88,
+                        width: 88,
+                      ),
                     ),
+
                     const SizedBox(height: 16),
+
                     const Text(
                       'Join Life Drop',
                       style: TextStyle(
@@ -110,20 +132,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         letterSpacing: -0.5,
                       ),
                     ),
+
                     const SizedBox(height: 8),
+
                     const Text(
                       'Register as a blood donor and help nearby people faster.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
                     ),
+
                     const SizedBox(height: 26),
+
                     CustomTextField(
                       controller: _nameController,
                       label: 'Full Name',
                       prefixIcon: Icons.person_outline,
-                      validator: (value) => Validators.requiredField(value, 'Full name'),
+                      validator: (value) =>
+                          Validators.requiredField(value, 'Full name'),
                     ),
+
                     const SizedBox(height: 16),
+
                     CustomTextField(
                       controller: _phoneController,
                       label: 'Phone Number',
@@ -131,7 +163,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       keyboardType: TextInputType.phone,
                       validator: Validators.phone,
                     ),
+
                     const SizedBox(height: 16),
+
                     CustomTextField(
                       controller: _emailController,
                       label: 'Email',
@@ -139,28 +173,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       keyboardType: TextInputType.emailAddress,
                       validator: Validators.email,
                     ),
+
                     const SizedBox(height: 16),
+
                     CustomTextField(
                       controller: _passwordController,
                       label: 'Password',
                       prefixIcon: Icons.lock_outline,
-                      obscureText: true,
+                      obscureText: !_showPassword,
+                      suffixIcon: _passwordEyeButton(
+                        visible: _showPassword,
+                        onPressed: () {
+                          setState(() {
+                            _showPassword = !_showPassword;
+                          });
+                        },
+                      ),
                       validator: Validators.password,
                     ),
+
                     const SizedBox(height: 16),
+
                     CustomTextField(
                       controller: _confirmPasswordController,
                       label: 'Confirm Password',
                       prefixIcon: Icons.lock_reset,
-                      obscureText: true,
-                      validator: (value) => Validators.confirmPassword(value, _passwordController.text),
+                      obscureText: !_showConfirmPassword,
+                      suffixIcon: _passwordEyeButton(
+                        visible: _showConfirmPassword,
+                        onPressed: () {
+                          setState(() {
+                            _showConfirmPassword = !_showConfirmPassword;
+                          });
+                        },
+                      ),
+                      validator: (value) => Validators.confirmPassword(
+                        value,
+                        _passwordController.text,
+                      ),
                     ),
+
                     const SizedBox(height: 24),
+
                     CustomButton(
-                      text: authProvider.isLoading ? 'Please wait...' : 'Create Account',
+                      text: authProvider.isLoading
+                          ? 'Please wait...'
+                          : 'Create Account',
                       onPressed: authProvider.isLoading ? null : _register,
                     ),
+
                     const SizedBox(height: 18),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -169,9 +232,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: authProvider.isLoading
                               ? null
                               : () => Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const LoginScreen(),
                                   ),
+                                ),
                           child: const Text(
                             'Login',
                             style: TextStyle(

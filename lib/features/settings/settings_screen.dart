@@ -5,11 +5,17 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/me_service.dart';
 import '../../models/user_profile_model.dart';
 import '../../widgets/common_header.dart';
-import '../admin/admin_dashboard_screen.dart';
 import '../auth/login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    required this.onTabChange,
+    this.adminTabIndex,
+  });
+
+  final void Function(int index) onTabChange;
+  final int? adminTabIndex;
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
@@ -24,12 +30,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   bool _isAdmin(UserProfileModel? profile) {
-    try {
-      final dynamic p = profile;
-      return p.role == 'admin';
-    } catch (_) {
-      return false;
-    }
+    return profile?.role.toLowerCase().trim() == 'admin';
   }
 
   @override
@@ -61,34 +62,38 @@ class SettingsScreen extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    if (isAdmin) ...[
+                    if (isAdmin && adminTabIndex != null) ...[
                       _settingsTile(
                         title: 'Admin Panel',
                         subtitle: 'Manage users, donors and requests',
                         icon: Icons.admin_panel_settings_outlined,
                         iconColor: AppColors.primaryTeal,
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const AdminDashboardScreen(),
-                            ),
-                          );
+                          onTabChange(adminTabIndex!);
                         },
                       ),
                       const SizedBox(height: 12),
                     ],
-
+                    _settingsTile(
+                      title: 'Activity',
+                      subtitle: 'Notifications and updates',
+                      icon: Icons.notifications_none_rounded,
+                      iconColor: AppColors.primaryTeal,
+                      onTap: () {
+                        onTabChange(3);
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     _settingsTile(
                       title: 'Account',
                       subtitle: user.email ?? 'No email found',
                       icon: Icons.person_outline,
                       iconColor: AppColors.primaryGreen,
-                      onTap: () {},
+                      onTap: () {
+                        onTabChange(4);
+                      },
                     ),
-
                     const SizedBox(height: 12),
-
                     _settingsTile(
                       title: 'Logout',
                       subtitle: 'Sign out from Life Drop',
@@ -122,6 +127,13 @@ class SettingsScreen extends StatelessWidget {
           color: AppColors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.cardShadow,
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [

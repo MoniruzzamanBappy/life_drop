@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -36,14 +37,19 @@ class BloodRequestDetailsScreen extends StatelessWidget {
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'fulfilled':
+        return AppColors.primaryGreen;
       case 'closed':
         return AppColors.textSecondary;
       default:
-        return AppColors.primaryGreen;
+        return AppColors.danger;
     }
   }
 
-  Future<void> _callContact(BuildContext context) async {
+  Future<void> _callContact(
+    BuildContext context,
+    BloodRequestModel request,
+  ) async {
     final success = await CallService.callPhone(request.contactPhone);
 
     if (!success && context.mounted) {
@@ -56,7 +62,26 @@ class BloodRequestDetailsScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _closeRequest(BuildContext context) async {
+  Future<void> _callAcceptedDonor(
+    BuildContext context,
+    BloodRequestModel request,
+  ) async {
+    final success = await CallService.callPhone(request.acceptedDonorPhone);
+
+    if (!success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open phone dialer'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
+  Future<void> _closeRequest(
+    BuildContext context,
+    BloodRequestModel request,
+  ) async {
     try {
       await BloodRequestService().closeBloodRequest(request.id);
 
@@ -84,12 +109,26 @@ class BloodRequestDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('blood_requests')
+          .doc(request.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final latestRequest = snapshot.data?.exists == true
+            ? BloodRequestModel.fromFirestore(snapshot.data!)
+            : request;
+
+        return _detailsScaffold(context, latestRequest);
+      },
+    );
+  }
+
+  Widget _detailsScaffold(BuildContext context, BloodRequestModel request) {
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final bool isMine = currentUid == request.requesterUid;
     final bool isOpen = request.status.toLowerCase() == 'open';
-
-    final urgencyColor = _urgencyColor(request.urgency);
-    final statusColor = _statusColor(request.status);
+    final bool isFulfilled = request.status.toLowerCase() == 'fulfilled';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -98,7 +137,18 @@ class BloodRequestDetailsScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _topCard(urgencyColor: urgencyColor, statusColor: statusColor),
+            _mainRequestCard(
+              context: context,
+              request: request,
+              isMine: isMine,
+              isOpen: isOpen,
+              isFulfilled: isFulfilled,
+            ),
+
+            if (isFulfilled || request.hasAcceptedDonor) ...[
+              const SizedBox(height: 16),
+              _acceptedDonorCard(context, request),
+            ],
 
             const SizedBox(height: 16),
 
@@ -112,6 +162,8 @@ class BloodRequestDetailsScreen extends StatelessWidget {
                 _infoRow('Needed Date', _formatDate(request.neededDate)),
                 _infoRow('Urgency', request.urgency.toUpperCase()),
                 _infoRow('Status', request.status.toUpperCase()),
+                if (request.fulfilledAt != null)
+                  _infoRow('Fulfilled At', _formatDate(request.fulfilledAt)),
               ],
             ),
 
@@ -138,9 +190,8 @@ class BloodRequestDetailsScreen extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 16),
-
-            if (request.reason.isNotEmpty)
+            if (request.reason.isNotEmpty) ...[
+              const SizedBox(height: 16),
               _sectionCard(
                 title: 'Reason',
                 icon: Icons.notes_outlined,
@@ -158,10 +209,7 @@ class BloodRequestDetailsScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
-            if (request.reason.isNotEmpty) const SizedBox(height: 16),
-
-            _actionButtons(context: context, isMine: isMine, isOpen: isOpen),
+            ],
 
             const SizedBox(height: 20),
           ],
@@ -170,95 +218,150 @@ class BloodRequestDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _topCard({required Color urgencyColor, required Color statusColor}) {
+  Widget _mainRequestCard({
+    required BuildContext context,
+    required BloodRequestModel request,
+    required bool isMine,
+    required bool isOpen,
+    required bool isFulfilled,
+  }) {
+    final urgencyColor = _urgencyColor(request.urgency);
+    final statusColor = _statusColor(request.status);
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryTeal, AppColors.primaryGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 34,
-            backgroundColor: AppColors.white,
-            child: Text(
-              request.bloodGroup,
-              style: const TextStyle(
-                color: AppColors.primaryTeal,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 22,
+            offset: Offset(0, 10),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 38,
+                backgroundColor: urgencyColor.withValues(alpha: 0.12),
+                child: Text(
+                  request.bloodGroup,
+                  style: TextStyle(
+                    color: urgencyColor,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
                   request.patientName.isEmpty
                       ? 'Blood Request'
                       : request.patientName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  '${request.unitsNeeded} unit(s) needed • ${request.district}',
-                  style: const TextStyle(color: AppColors.white, fontSize: 14),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _badge(
-                      text: request.urgency.toUpperCase(),
-                      color: urgencyColor,
-                      isLight: true,
-                    ),
-                    _badge(
-                      text: request.status.toUpperCase(),
-                      color: statusColor,
-                      isLight: true,
-                    ),
-                  ],
-                ),
-              ],
+              ),
+              _pillBadge(
+                text: request.status.toUpperCase(),
+                color: statusColor,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          _pillBadge(text: request.urgency.toUpperCase(), color: urgencyColor),
+
+          const SizedBox(height: 20),
+
+          _mainInfoLine(
+            icon: Icons.water_drop_outlined,
+            text: '${request.unitsNeeded} unit(s) needed',
+          ),
+          _mainInfoLine(
+            icon: Icons.local_hospital_outlined,
+            text: request.hospitalName,
+          ),
+          _mainInfoLine(
+            icon: Icons.location_on_outlined,
+            text: request.hospitalAddress,
+          ),
+          _mainInfoLine(icon: Icons.map_outlined, text: request.district),
+          _mainInfoLine(
+            icon: Icons.calendar_month_outlined,
+            text: _formatDate(request.neededDate),
+          ),
+          _mainInfoLine(
+            icon: Icons.phone_outlined,
+            text: '${request.contactName} - ${request.contactPhone}',
+          ),
+
+          if (request.reason.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(
+              request.reason,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+          ],
+
+          const SizedBox(height: 22),
+
+          _insideCardButtons(
+            context: context,
+            request: request,
+            isMine: isMine,
+            isOpen: isOpen,
+            isFulfilled: isFulfilled,
           ),
         ],
       ),
     );
   }
 
-  Widget _actionButtons({
+  Widget _insideCardButtons({
     required BuildContext context,
+    required BloodRequestModel request,
     required bool isMine,
     required bool isOpen,
+    required bool isFulfilled,
   }) {
     return Column(
       children: [
         SizedBox(
           width: double.infinity,
-          height: 50,
+          height: 52,
           child: ElevatedButton.icon(
-            onPressed: () => _callContact(context),
+            onPressed: () => _callContact(context, request),
             icon: const Icon(Icons.phone),
             label: const Text('Call Contact'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryGreen,
-              foregroundColor: AppColors.white,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(18),
               ),
             ),
           ),
@@ -266,10 +369,10 @@ class BloodRequestDetailsScreen extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        if (isMine) ...[
+        if (isMine)
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 52,
             child: OutlinedButton.icon(
               onPressed: () {
                 Navigator.push(
@@ -280,40 +383,31 @@ class BloodRequestDetailsScreen extends StatelessWidget {
                 );
               },
               icon: const Icon(Icons.people_outline),
-              label: const Text('View Responses'),
+              label: Text(
+                isFulfilled
+                    ? 'View Responses / Accepted Donor'
+                    : 'View Responses',
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primaryTeal,
-                side: const BorderSide(color: AppColors.primaryTeal),
+                side: const BorderSide(
+                  color: AppColors.primaryTeal,
+                  width: 1.4,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                 ),
               ),
             ),
-          ),
-
-          if (isOpen) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: OutlinedButton.icon(
-                onPressed: () => _closeRequest(context),
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Close Request'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.danger,
-                  side: const BorderSide(color: AppColors.danger),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ] else if (isOpen) ...[
+          )
+        else if (isOpen)
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 52,
             child: ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
@@ -327,15 +421,147 @@ class BloodRequestDetailsScreen extends StatelessWidget {
               label: const Text('I Can Donate'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryTeal,
-                foregroundColor: AppColors.white,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          )
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.textSecondary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'This request is no longer accepting donor responses.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+
+        if (isMine && isOpen) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => _closeRequest(context, request),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Close Request'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.danger,
+                side: const BorderSide(color: AppColors.danger, width: 1.3),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
                 ),
               ),
             ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _mainInfoLine({required IconData icon, required String text}) {
+    final displayText = text.trim().isEmpty ? 'Not added' : text;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Row(
+        children: [
+          Icon(icon, size: 23, color: AppColors.primaryTeal),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              displayText,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _acceptedDonorCard(BuildContext context, BloodRequestModel request) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.primaryGreen.withValues(alpha: 0.30),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.verified_rounded,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Selected / Accepted Donor',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _infoRow('Donor Name', request.acceptedDonorName),
+          _infoRow('Donor Phone', request.acceptedDonorPhone),
+          if (request.acceptedDonorPhone.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _callAcceptedDonor(context, request),
+                icon: const Icon(Icons.call),
+                label: const Text('Call Accepted Donor'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -416,23 +642,19 @@ class BloodRequestDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _badge({
-    required String text,
-    required Color color,
-    bool isLight = false,
-  }) {
+  Widget _pillBadge({required String text, required Color color}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
-        color: isLight ? AppColors.white : color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(9),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         text,
         style: TextStyle(
-          color: isLight ? color : color,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

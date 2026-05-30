@@ -146,7 +146,6 @@ class BloodRequestScreen extends StatelessWidget {
                             BloodRequestCard(
                               request: request,
                               isMine: true,
-                              onClose: () => _closeRequest(context, request),
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -157,31 +156,44 @@ class BloodRequestScreen extends StatelessWidget {
                                   ),
                                 );
                               },
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => RequestResponsesScreen(
-                                        request: request,
-                                      ),
+                              onViewResponses: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RequestResponsesScreen(
+                                      request: request,
                                     ),
-                                  );
-                                },
-                                icon: const Icon(Icons.people_outline),
-                                label: const Text('View Responses'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.primaryTeal,
-                                  side: const BorderSide(
-                                    color: AppColors.primaryTeal,
                                   ),
-                                ),
-                              ),
+                                );
+                              },
+                              onClose: request.status.toLowerCase() == 'open'
+                                  ? () => _closeRequest(context, request)
+                                  : null,
                             ),
+                            // const SizedBox(height: 8),
+                            // SizedBox(
+                            //   width: double.infinity,
+                            //   child: OutlinedButton.icon(
+                            //     onPressed: () {
+                            //       Navigator.push(
+                            //         context,
+                            //         MaterialPageRoute(
+                            //           builder: (_) => RequestResponsesScreen(
+                            //             request: request,
+                            //           ),
+                            //         ),
+                            //       );
+                            //     },
+                            //     icon: const Icon(Icons.people_outline),
+                            //     label: const Text('View Responses'),
+                            //     style: OutlinedButton.styleFrom(
+                            //       foregroundColor: AppColors.primaryTeal,
+                            //       side: const BorderSide(
+                            //         color: AppColors.primaryTeal,
+                            //       ),
+                            //     ),
+                            //   ),
+                            // ),
                           ],
                         );
                       },

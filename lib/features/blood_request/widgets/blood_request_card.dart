@@ -10,19 +10,25 @@ class BloodRequestCard extends StatelessWidget {
     required this.request,
     required this.isMine,
     this.onClose,
+    this.onViewResponses,
+    this.onDonate,
     this.onTap,
   });
 
   final BloodRequestModel request;
   final bool isMine;
   final VoidCallback? onClose;
+  final VoidCallback? onViewResponses;
+  final VoidCallback? onDonate;
   final VoidCallback? onTap;
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Not added';
+
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     final year = date.year.toString();
+
     return '$day-$month-$year';
   }
 
@@ -39,15 +45,20 @@ class BloodRequestCard extends StatelessWidget {
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'fulfilled':
+        return AppColors.primaryGreen;
       case 'closed':
         return AppColors.textSecondary;
       default:
-        return AppColors.primaryGreen;
+        return AppColors.danger;
     }
   }
 
+  bool get _isOpen => request.status.toLowerCase() == 'open';
+
   Future<void> _callContact(BuildContext context) async {
     final success = await CallService.callPhone(request.contactPhone);
+
     if (!success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -65,139 +76,252 @@ class BloodRequestCard extends StatelessWidget {
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 420),
+      duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
-      builder: (context, value, child) => Transform.translate(
-        offset: Offset(0, 18 * (1 - value)),
-        child: Opacity(opacity: value, child: child),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.border),
-            boxShadow: AppColors.softShadow,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 16 * (1 - value)),
+            child: child,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    height: 52,
-                    width: 52,
-                    decoration: BoxDecoration(
-                      gradient: urgencyColor == AppColors.danger
-                          ? AppColors.bloodGradient
-                          : null,
-                      color: urgencyColor == AppColors.danger
-                          ? null
-                          : urgencyColor.withValues(alpha: 0.13),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        request.bloodGroup,
-                        style: TextStyle(
-                          color: urgencyColor == AppColors.danger
-                              ? Colors.white
-                              : urgencyColor,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+        );
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.softShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _topSection(
+                  urgencyColor: urgencyColor,
+                  statusColor: statusColor,
+                ),
+
+                const SizedBox(height: 18),
+
+                _badge(
+                  text: request.urgency.toUpperCase(),
+                  color: urgencyColor,
+                ),
+
+                const SizedBox(height: 18),
+
+                _info(
+                  Icons.water_drop_outlined,
+                  '${request.unitsNeeded} unit(s) needed',
+                ),
+                _info(Icons.local_hospital_outlined, request.hospitalName),
+                _info(Icons.location_on_outlined, request.hospitalAddress),
+                _info(Icons.map_outlined, request.district),
+                _info(
+                  Icons.calendar_month_outlined,
+                  _formatDate(request.neededDate),
+                ),
+                _info(
+                  Icons.phone_outlined,
+                  '${request.contactName} - ${request.contactPhone}',
+                ),
+
+                if (request.reason.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    request.reason,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 15,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      request.patientName,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  _badge(text: request.status.toUpperCase(), color: statusColor),
                 ],
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _badge(text: request.urgency.toUpperCase(), color: urgencyColor),
-              ),
-              const SizedBox(height: 14),
-              _info(Icons.water_drop_outlined, '${request.unitsNeeded} unit(s) needed'),
-              _info(Icons.local_hospital_outlined, request.hospitalName),
-              _info(Icons.location_on_outlined, request.hospitalAddress),
-              _info(Icons.map_outlined, request.district),
-              _info(Icons.calendar_month_outlined, _formatDate(request.neededDate)),
-              _info(Icons.phone_outlined, '${request.contactName} - ${request.contactPhone}'),
-              if (request.reason.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  request.reason,
-                  style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
-                ),
+
+                const SizedBox(height: 18),
+
+                _actionButtons(context),
               ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _callContact(context),
-                  icon: const Icon(Icons.phone),
-                  label: const Text('Call Contact'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: AppColors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-              if (isMine && request.status == 'open' && onClose != null) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onClose,
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Close Request'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primaryGreen,
-                      side: const BorderSide(color: AppColors.primaryGreen),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _topSection({
+    required Color urgencyColor,
+    required Color statusColor,
+  }) {
+    return Row(
+      children: [
+        Container(
+          height: 72,
+          width: 72,
+          decoration: BoxDecoration(
+            color: urgencyColor.withValues(alpha: 0.13),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              request.bloodGroup.isEmpty ? '?' : request.bloodGroup,
+              style: TextStyle(
+                color: urgencyColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            request.patientName.isEmpty ? 'Blood Request' : request.patientName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _badge(text: request.status.toUpperCase(), color: statusColor),
+      ],
+    );
+  }
+
+  Widget _actionButtons(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton.icon(
+            onPressed: () => _callContact(context),
+            icon: const Icon(Icons.phone),
+            label: const Text('Call Contact'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+        ),
+
+        if (isMine && onViewResponses != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: onViewResponses,
+              icon: const Icon(Icons.people_outline),
+              label: const Text('View Responses'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryTeal,
+                side: const BorderSide(
+                  color: AppColors.primaryTeal,
+                  width: 1.4,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        if (isMine && _isOpen && onClose != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: onClose,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Close Request'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.danger,
+                side: const BorderSide(color: AppColors.danger, width: 1.3),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        if (!isMine && _isOpen && onDonate != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: onDonate,
+              icon: const Icon(Icons.volunteer_activism),
+              label: const Text('I Can Donate'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryTeal,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _info(IconData icon, String text) {
+    final displayText = text.trim().isEmpty ? 'Not added' : text;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 11),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.primaryTeal, size: 18),
-          const SizedBox(width: 8),
+          Icon(icon, color: AppColors.primaryTeal, size: 21),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              text.isEmpty ? 'Not added' : text,
+              displayText,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                height: 1.28,
               ),
             ),
           ),
@@ -208,14 +332,18 @@ class BloodRequestCard extends StatelessWidget {
 
   Widget _badge({required String text, required Color color}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

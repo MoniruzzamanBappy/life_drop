@@ -15,6 +15,12 @@ class BloodRequestModel {
   final String urgency;
   final String reason;
   final String status;
+
+  final String acceptedDonorUid;
+  final String acceptedDonorName;
+  final String acceptedDonorPhone;
+  final DateTime? fulfilledAt;
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -33,6 +39,10 @@ class BloodRequestModel {
     required this.urgency,
     required this.reason,
     required this.status,
+    this.acceptedDonorUid = '',
+    this.acceptedDonorName = '',
+    this.acceptedDonorPhone = '',
+    this.fulfilledAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -59,6 +69,10 @@ class BloodRequestModel {
       urgency: data['urgency']?.toString() ?? 'normal',
       reason: data['reason']?.toString() ?? '',
       status: data['status']?.toString() ?? 'open',
+      acceptedDonorUid: data['acceptedDonorUid']?.toString() ?? '',
+      acceptedDonorName: data['acceptedDonorName']?.toString() ?? '',
+      acceptedDonorPhone: data['acceptedDonorPhone']?.toString() ?? '',
+      fulfilledAt: _dateFromFirestore(data['fulfilledAt']),
       createdAt: _dateFromFirestore(data['createdAt']),
       updatedAt: _dateFromFirestore(data['updatedAt']),
     );
@@ -79,10 +93,20 @@ class BloodRequestModel {
       'urgency': urgency,
       'reason': reason,
       'status': status,
+      'acceptedDonorUid': acceptedDonorUid,
+      'acceptedDonorName': acceptedDonorName,
+      'acceptedDonorPhone': acceptedDonorPhone,
+      'fulfilledAt': fulfilledAt == null
+          ? null
+          : Timestamp.fromDate(fulfilledAt!),
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
+
+  bool get isFulfilled => status.toLowerCase() == 'fulfilled';
+
+  bool get hasAcceptedDonor => acceptedDonorUid.trim().isNotEmpty;
 
   static DateTime? _dateFromFirestore(dynamic value) {
     if (value == null) return null;

@@ -41,10 +41,6 @@ class AppColors {
   );
 
   static List<BoxShadow> get softShadow => const [
-        BoxShadow(
-          color: cardShadow,
-          blurRadius: 24,
-          offset: Offset(0, 12),
-        ),
-      ];
+    BoxShadow(color: cardShadow, blurRadius: 24, offset: Offset(0, 12)),
+  ];
 }

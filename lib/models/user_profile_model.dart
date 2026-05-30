@@ -10,6 +10,7 @@ class UserProfileModel {
   final DateTime? lastDonateDate;
   final String bloodGroup;
   final String role;
+  final String status;
 
   final bool? currentIllnessStatus;
   final bool? currentMedicationStatus;
@@ -30,6 +31,7 @@ class UserProfileModel {
     required this.lastDonateDate,
     required this.bloodGroup,
     required this.role,
+    required this.status,
     required this.currentIllnessStatus,
     required this.currentMedicationStatus,
     required this.recentSurgeryOrMajorIllness,
@@ -56,6 +58,7 @@ class UserProfileModel {
       lastDonateDate: null,
       bloodGroup: '',
       role: 'user',
+      status: 'active',
       currentIllnessStatus: null,
       currentMedicationStatus: null,
       recentSurgeryOrMajorIllness: null,
@@ -80,7 +83,8 @@ class UserProfileModel {
       photo: data['photo']?.toString() ?? '',
       lastDonateDate: _dateFromFirestore(data['lastDonateDate']),
       bloodGroup: data['bloodGroup']?.toString() ?? '',
-      role: data['role']?.toString() ?? '',
+      role: data['role']?.toString() ?? 'user',
+      status: data['status']?.toString() ?? 'active',
       currentIllnessStatus: _toBool(data['currentIllnessStatus']),
       currentMedicationStatus: _toBool(data['currentMedicationStatus']),
       recentSurgeryOrMajorIllness: _toBool(data['recentSurgeryOrMajorIllness']),
@@ -104,6 +108,7 @@ class UserProfileModel {
           : Timestamp.fromDate(lastDonateDate!),
       'bloodGroup': bloodGroup,
       'role': role,
+      'status': status,
       'currentIllnessStatus': currentIllnessStatus,
       'currentMedicationStatus': currentMedicationStatus,
       'recentSurgeryOrMajorIllness': recentSurgeryOrMajorIllness,
@@ -114,6 +119,10 @@ class UserProfileModel {
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
+
+  bool get isBlocked => status.toLowerCase().trim() == 'blocked';
+
+  bool get isAdmin => role.toLowerCase().trim() == 'admin';
 
   static DateTime? _dateFromFirestore(dynamic value) {
     if (value == null) return null;

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_form_options.dart';
 import '../../core/services/blood_request_service.dart';
 import '../../core/utils/validators.dart';
 import '../../models/blood_request_model.dart';
@@ -23,30 +24,40 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
 
   final _patientNameController = TextEditingController();
   final _unitsNeededController = TextEditingController(text: '1');
-  final _hospitalNameController = TextEditingController();
   final _hospitalAddressController = TextEditingController();
-  final _districtController = TextEditingController();
   final _contactNameController = TextEditingController();
   final _contactPhoneController = TextEditingController();
   final _reasonController = TextEditingController();
 
   String? _bloodGroup;
+  String? _district;
+  String? _hospitalName;
   String? _urgency = 'normal';
+
   DateTime? _neededDate;
   bool _isLoading = false;
 
-  final List<String> _bloodGroups = const [
-    'A+',
-    'A-',
-    'B+',
-    'B-',
-    'AB+',
-    'AB-',
-    'O+',
-    'O-',
-  ];
+  List<String> get _hospitalOptions {
+    return AppFormOptions.hospitalsForDistrict(_district);
+  }
 
-  final List<String> _urgencies = const ['normal', 'urgent', 'emergency'];
+  void _onDistrictChanged(String? value) {
+    setState(() {
+      _district = value;
+      _hospitalName = null;
+      _hospitalAddressController.clear();
+    });
+  }
+
+  void _onHospitalChanged(String? value) {
+    setState(() {
+      _hospitalName = value;
+      _hospitalAddressController.text = AppFormOptions.defaultHospitalAddress(
+        district: _district,
+        hospital: value,
+      );
+    });
+  }
 
   Future<void> _pickNeededDate() async {
     final now = DateTime.now();
@@ -101,9 +112,9 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
         patientName: _patientNameController.text.trim(),
         bloodGroup: _bloodGroup ?? '',
         unitsNeeded: int.tryParse(_unitsNeededController.text.trim()) ?? 1,
-        hospitalName: _hospitalNameController.text.trim(),
+        hospitalName: _hospitalName ?? '',
         hospitalAddress: _hospitalAddressController.text.trim(),
-        district: _districtController.text.trim(),
+        district: _district ?? '',
         contactName: _contactNameController.text.trim(),
         contactPhone: _contactPhoneController.text.trim(),
         neededDate: _neededDate,
@@ -144,9 +155,7 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
   void dispose() {
     _patientNameController.dispose();
     _unitsNeededController.dispose();
-    _hospitalNameController.dispose();
     _hospitalAddressController.dispose();
-    _districtController.dispose();
     _contactNameController.dispose();
     _contactPhoneController.dispose();
     _reasonController.dispose();
@@ -155,6 +164,8 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hospitalItems = _hospitalOptions;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Create Blood Request')),
@@ -182,7 +193,7 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                   label: 'Blood Group',
                   value: _bloodGroup,
                   prefixIcon: Icons.bloodtype,
-                  items: _bloodGroups,
+                  items: AppFormOptions.bloodGroups,
                   validator: (value) =>
                       Validators.requiredField(value, 'Blood group'),
                   onChanged: (value) {
@@ -219,32 +230,38 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                 _sectionTitle('Hospital Information', Icons.local_hospital),
                 const SizedBox(height: 14),
 
-                CustomTextField(
-                  controller: _hospitalNameController,
-                  label: 'Hospital Name',
-                  prefixIcon: Icons.local_hospital_outlined,
+                CustomDropdownField(
+                  label: 'District',
+                  value: _district,
+                  prefixIcon: Icons.map_outlined,
+                  items: AppFormOptions.districts,
                   validator: (value) =>
-                      Validators.requiredField(value, 'Hospital name'),
+                      Validators.requiredField(value, 'District'),
+                  onChanged: _onDistrictChanged,
+                ),
+
+                const SizedBox(height: 14),
+
+                CustomDropdownField(
+                  label: 'Hospital',
+                  value: _hospitalName,
+                  prefixIcon: Icons.local_hospital_outlined,
+                  items: hospitalItems,
+                  validator: (value) =>
+                      Validators.requiredField(value, 'Hospital'),
+                  onChanged: _district == null ? (_) {} : _onHospitalChanged,
                 ),
 
                 const SizedBox(height: 14),
 
                 _multiLineField(
                   controller: _hospitalAddressController,
-                  label: 'Hospital Address',
+                  label: _hospitalName == 'Other'
+                      ? 'Hospital Name / Address'
+                      : 'Hospital Address',
                   icon: Icons.location_on_outlined,
                   validator: (value) =>
                       Validators.requiredField(value, 'Hospital address'),
-                ),
-
-                const SizedBox(height: 14),
-
-                CustomTextField(
-                  controller: _districtController,
-                  label: 'District',
-                  prefixIcon: Icons.map_outlined,
-                  validator: (value) =>
-                      Validators.requiredField(value, 'District'),
                 ),
 
                 const SizedBox(height: 24),
@@ -283,7 +300,7 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                   label: 'Urgency',
                   value: _urgency,
                   prefixIcon: Icons.priority_high,
-                  items: _urgencies,
+                  items: AppFormOptions.urgencies,
                   validator: (value) =>
                       Validators.requiredField(value, 'Urgency'),
                   onChanged: (value) {
